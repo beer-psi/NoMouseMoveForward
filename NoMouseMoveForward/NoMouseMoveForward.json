@@ -1,0 +1,9 @@
+{
+  "Author": "beerpsi",
+  "Name": "NoMouseMoveForward",
+  "Punchline": "Plugin to disable moving forward with LMB+RMB",
+  "Description": "A plugin to disable moving forward using LMB+RMB, with separate toggles for walking and flying.",
+  "ApplicableVersion": "any",
+  "Tags": ["tweak", "mouse", "move", "forward", "utility"], 
+  "CategoryTags": ["Utility"]
+}
