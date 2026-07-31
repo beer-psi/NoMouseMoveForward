@@ -1,22 +1,49 @@
+using System;
+using Dalamud.Hooking;
+using Dalamud.Utility.Signatures;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
+
 namespace NoMouseMoveForward.Hooks;
 
-public class NoLmbRmbWalking : AsmHookBase
+public unsafe class NoLmbRmbWalking : HookBase
 {
+    [Signature("E8 ?? ?? ?? ?? 80 7B 3E 00 48 8D 3D", DetourName = nameof(RmiWalkDetour))]
+    private readonly Hook<RmiWalkDelegate> rmiWalkHook = null!;
+    private delegate void RmiWalkDelegate(void* self, float* sumLeft, float* sumForward, float* sumTurnLeft, byte* haveBackwardOrStrafe, byte* a6, byte bAdditiveUnk);
+    
     public NoLmbRmbWalking()
     {
-        // https://github.com/awgil/ffxiv_navmesh/blob/2bafac676b9fc5abbd0799add526ad7f0cfbba1d/vnavmesh/Movement/OverrideMovement.cs#L57-L59
-        // Inside this function there is a check for whether both mouse buttons are held down.
-        // This signature is for that.
-        //     83 3D ?? ?? ?? ?? 03        CMP dword ptr [g_Client::Game::Control::InputManager_MouseButtonHoldState], 0x03
-        //     75 ??                       JNZ ??
-        //     F3 0F 10 0F                 MOVSS XMM1, dword ptr [RDI]
-        // Before the JNZ instruction, we execute:
-        //     48 85 E4                    TEST RSP, RSP
-        // Since the stack pointer should always be non-zero, this clears the ZF flag and makes the JMP always taken.
-        var address = Plugin.SigScanner.ScanText("83 3D ?? ?? ?? ?? 03 75 ?? F3 0F 10 0F");
-        AddHook(address + 7, TestRspRsp, "NoLmbRmbWalking1");
+        Plugin.GameInteropProvider.InitializeFromAttributes(this);
+    }
+    
+    public override void Dispose()
+    {
+        rmiWalkHook.Disable();
+        rmiWalkHook.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    protected override void Enable()
+    {
+        rmiWalkHook.Enable();
+    }
+
+    protected override void Disable()
+    {
+        rmiWalkHook.Disable();
+    }
+
+    protected override bool Enabled => rmiWalkHook.IsEnabled;
+
+    private void RmiWalkDetour(void* self, float* sumLeft, float* sumForward, float* sumTurnLeft, byte* haveBackwardOrStrafe, byte* a6, byte bAdditiveUnk)
+    {
+        var im = InputManager.Instance();
+        var previousMouseState = im->MouseButtonHoldStateRaw;
+
+        if (previousMouseState == 3)
+            im->MouseButtonHoldStateRaw = 2;
         
-        address = Plugin.SigScanner.ScanText("83 3D ?? ?? ?? ?? 03 0F 85 ?? ?? ?? ?? F3 0F 10 0F");
-        AddHook(address + 7, TestRspRsp, "NoLmbRmbWalking2");
+        rmiWalkHook.Original(self, sumLeft, sumForward, sumTurnLeft, haveBackwardOrStrafe, a6, bAdditiveUnk);
+        im->MouseButtonHoldStateRaw = previousMouseState;
     }
 }
